@@ -1,18 +1,10 @@
-import { GoogleGenerativeAI } from "@google/generative-ai";
+import { GoogleGenAI } from "@google/genai";
 import { NextResponse } from "next/server";
 
-const apiKey = process.env.GEMINI_API_KEY;
-const genAI = new GoogleGenerativeAI(apiKey || "");
+const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
 
 export async function POST(req: Request) {
   try {
-    if (!apiKey) {
-      return NextResponse.json(
-        { error: "API key should be set when using the Gemini API." },
-        { status: 500 }
-      );
-    }
-
     const body = await req.json();
     const { fullName, jobTitle, skills, experience, education } = body;
 
@@ -25,12 +17,12 @@ export async function POST(req: Request) {
     
     Return only the clean HTML code for the resume body. Do not include markdown code block backticks like \`\`\`html, just return the raw HTML string.`;
 
-    const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
-    const result = await model.generateContent(prompt);
-    const response = await result.response;
-    const text = response.text();
+    const response = await ai.models.generateContent({
+      model: "gemini-1.5-flash",
+      contents: prompt,
+    });
 
-    return NextResponse.json({ resume: text });
+    return NextResponse.json({ resume: response.text });
   } catch (error: any) {
     console.error("Error generating resume:", error);
     return NextResponse.json(
