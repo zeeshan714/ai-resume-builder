@@ -1,70 +1,158 @@
 'use client';
 
 import { useState } from 'react';
-import { auth } from '@/lib/firebase';
-import { signInWithEmailAndPassword } from 'firebase/auth';
-import Link from 'next/link';
+import { auth } from '../firebase';
+import { onAuthStateChanged, signOut } from 'firebase/auth';
+import { useRouter } from 'next/navigation';
 
-export default function LoginPage() {
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [loading, setLoading] = useState(false);
+export default function DashboardPage() {
+  const [user, setUser] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+  const router = useRouter();
 
-  const handleLogin = async (e: React.FormEvent) => {
+  // Form states
+  const [formData, setFormData] = useState({
+    fullName: '',
+    targetJob: '',
+    skills: '',
+    experience: '',
+    education: '',
+    template: 'Modern Professional',
+  });
+
+  const [resumeHtml, setResumeHtml] = useState('');
+  const [generating, setGenerating] = useState(false);
+
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
+      if (!currentUser) {
+        router.push('/login');
+      } else {
+        setUser(currentUser);
+        setLoading(false);
+      }
+    });
+    return () => unsubscribe();
+  }, [router]);
+
+  const handleLogout = async () => {
+    await signOut(auth);
+    router.push('/login');
+  };
+
+  const handleGenerate = async (e: React.FormEvent) => {
     e.preventDefault();
-    setLoading(true);
+    setGenerating(true);
 
     try {
-      await signInWithEmailAndPassword(auth, email, password);
-      window.location.href = '/dashboard';
-    } catch (err: any) {
-      alert(err.message);
-      setLoading(false);
+      const response = await fetch('/api/generate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(formData),
+      });
+      const data = await response.json();
+      setResumeHtml(data.resume || '<p>Error generating resume.</p>');
+    } catch (err) {
+      setResumeHtml('<p>Failed to generate resume.</p>');
+    } finally {
+      setGenerating(false);
     }
   };
 
+  if (loading) {
+    return <div className="min-h-screen flex items-center justify-center">Loading...</div>;
+  }
+
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-100 p-4">
-      <div className="max-w-md w-full bg-white rounded-lg shadow-md p-8">
-        <h2 className="text-2xl font-bold text-center text-gray-800 mb-2">Sign in to your account</h2>
-        <p className="text-sm text-center text-gray-600 mb-6">
-          Or{' '}
-          <Link href="/register" className="text-blue-600 hover:underline">
-            create a new free account
-          </Link>
-        </p>
+    <div className="min-h-screen bg-gray-50 text-black">
+      {/* Navbar */}
+      <nav className="bg-white shadow px-6 py-4 flex justify-between items-center">
+        <h1 className="text-xl font-bold text-blue-900">AI Resume Dashboard</h1>
+        <button
+          onClick={handleLogout}
+          className="bg-red-600 text-white px-4 py-2 rounded text-sm hover:bg-red-700"
+        >
+          Log Out
+        </button>
+      </nav>
 
-        <form onSubmit={handleLogin} className="space-y-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700">Email address</label>
-            <input
-              type="email"
-              required
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 text-black"
-            />
+      {/* Main Content */}
+      <div className="max-w-7xl mx-auto p-6 grid grid-cols-1 md:grid-cols-2 gap-6">
+        {/* Form Section */}
+        <div className="bg-white p-6 rounded-lg shadow">
+          <h2 className="text-lg font-semibold mb-4">Enter Your Details</h2>
+          <form onSubmit={handleGenerate} className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700">Full Name</label>
+              <input
+                type="text"
+                required
+                value={formData.fullName}
+                onChange={(e) => setFormData({ ...formData, fullName: e.target.value })}
+                className="mt-1 w-full p-2 border rounded border-gray-300"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700">Target Job Title</label>
+              <input
+                type="text"
+                required
+                value={formData.targetJob}
+                onChange={(e) => setFormData({ ...formData, targetJob: e.target.value })}
+                className="mt-1 w-full p-2 border rounded border-gray-300"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700">Skills (Comma separated)</label>
+              <input
+                type="text"
+                required
+                value={formData.skills}
+                onChange={(e) => setFormData({ ...formData, skills: e.target.value })}
+                className="mt-1 w-full p-2 border rounded border-gray-300"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700">Experience</label>
+              <textarea
+                rows={3}
+                required
+                value={formData.experience}
+                onChange={(e) => setFormData({ ...formData, experience: e.target.value })}
+                className="mt-1 w-full p-2 border rounded border-gray-300"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700">Education</label>
+              <textarea
+                rows={3}
+                required
+                value={formData.education}
+                onChange={(e) => setFormData({ ...formData, education: e.target.value })}
+                className="mt-1 w-full p-2 border rounded border-gray-300"
+              />
+            </div>
+            <button
+              type="submit"
+              disabled={generating}
+              className="w-full bg-blue-600 text-white py-2 rounded hover:bg-blue-700 disabled:opacity-50"
+            >
+              {generating ? 'Generating...' : 'Generate Resume'}
+            </button>
+          </form>
+        </div>
+
+        {/* Preview Section */}
+        <div className="bg-white p-6 rounded-lg shadow">
+          <h2 className="text-lg font-semibold mb-4">Resume Preview</h2>
+          <div className="border p-4 rounded min-h-[400px] bg-white">
+            {resumeHtml ? (
+              <div dangerouslySetInnerHTML={{ __html: resumeHtml }} />
+            ) : (
+              <p className="text-gray-400">Your generated resume will appear here...</p>
+            )}
           </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700">Password</label>
-            <input
-              type="password"
-              required
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 text-black"
-            />
-          </div>
-
-          <button
-            type="submit"
-            disabled={loading}
-            className="w-full py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-900 hover:bg-blue-800 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50"
-          >
-            {loading ? 'Signing in...' : 'Sign In'}
-          </button>
-        </form>
+        </div>
       </div>
     </div>
   );
