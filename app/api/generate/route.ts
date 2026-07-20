@@ -1,34 +1,41 @@
-import { GoogleGenAI } from "@google/genai";
+import { GoogleGenerativeAI } from "@google/generative-ai";
 import { NextResponse } from "next/server";
 
-const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY || '' });
+const apiKey = process.env.GEMINI_API_KEY;
+const genAI = new GoogleGenerativeAI(apiKey || "");
 
 export async function POST(req: Request) {
   try {
-    const { fullName, targetJob, skills, experience, education } = await req.json();
+    if (!apiKey) {
+      return NextResponse.json(
+        { error: "API key should be set when using the Gemini API." },
+        { status: 500 }
+      );
+    }
 
-    const prompt = `Create a clean, professional HTML-formatted resume for:
-Name: ${fullName}
-Job Title: ${targetJob}
-Skills: ${skills}
-Experience: ${experience}
-Education: ${education}
+    const body = await req.json();
+    const { fullName, jobTitle, skills, experience, education } = body;
 
-Include sections with clean HTML tags (like h2, p, ul, li):
-- Professional Summary
-- Skills
-- Work Experience
-- Education
-Return ONLY the clean HTML code.`;
+    const prompt = `Generate a professional, ATS-friendly resume layout in clean HTML (using Tailwind CSS classes) based on the following details:
+    - Full Name: ${fullName}
+    - Target Job Title: ${jobTitle}
+    - Skills: ${skills}
+    - Experience: ${experience}
+    - Education: ${education}
+    
+    Return only the clean HTML code for the resume body. Do not include markdown code block backticks like \`\`\`html, just return the raw HTML string.`;
 
-    const response = await ai.models.generateContent({
-      model: 'gemini-2.5-flash',
-      contents: prompt,
-    });
+    const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+    const result = await model.generateContent(prompt);
+    const response = await result.response;
+    const text = response.text();
 
-    const text = response.text || '<p>Failed to generate resume.</p>';
     return NextResponse.json({ resume: text });
   } catch (error: any) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    console.error("Error generating resume:", error);
+    return NextResponse.json(
+      { error: error.message || "Failed to generate resume" },
+      { status: 500 }
+    );
   }
 }
