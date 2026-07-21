@@ -1,32 +1,27 @@
-import { GoogleGenAI } from "@google/genai";
-import { NextResponse } from "next/server";
-
-const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+import { NextResponse } from 'next/server';
 
 export async function POST(req: Request) {
   try {
     const body = await req.json();
-    const { fullName, jobTitle, skills, experience, education } = body;
+    const { prompt } = body;
 
-    const prompt = `Generate a professional, ATS-friendly resume layout in clean HTML (using Tailwind CSS classes) based on the following details:
-    - Full Name: ${fullName}
-    - Target Job Title: ${jobTitle}
-    - Skills: ${skills}
-    - Experience: ${experience}
-    - Education: ${education}
-    
-    Return only the clean HTML code for the resume body. Do not include markdown code block backticks like \`\`\`html, just return the raw HTML string.`;
+    // Yahan aap AI model (jaise Gemini ya OpenAI) ka code integrate kar sakte hain
+    // Filhal hum NHO portal ki maloomat ke mutabiq AI response bhej rahe hain
 
-    const response = await ai.models.generateContent({
-      model: "gemini-1.5-flash",
-      contents: prompt,
-    });
+    let aiResponse = "NHO (Nutraceutical Health Organization) Multan mein Khanewal Road, Chowk Kumharan par waqay hai.";
 
-    return NextResponse.json({ resume: response.text });
+    if (prompt && prompt.toLowerCase().includes('salary')) {
+      aiResponse = "Matric ki tankhuwah 28,000 se 30,000, Intermediate ki 30,000 se 35,000 aur Graduation ki 35,000 se 40,000 rupay hai.";
+    } else if (prompt && prompt.toLowerCase().includes('job')) {
+      aiResponse = "NHO mein office work, customer dealing aur health consultant ki asamiyaan mojood hain. 8 ghante duty hai.";
+    }
+
+    return NextResponse.json({ success: true, response: aiResponse });
+
   } catch (error: any) {
-    console.error("Error generating resume:", error);
+    console.error("Error generating response:", error);
     return NextResponse.json(
-      { error: error.message || "Failed to generate resume" },
+      { error: error.message || "Failed to generate response" },
       { status: 500 }
     );
   }
